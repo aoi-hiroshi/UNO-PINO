@@ -4,45 +4,9 @@ import torch.nn.functional as F
 import numpy as np
 
 
-# class SpectralConv2d(nn.Module):
-#     def __init__(self, in_channels, out_channels, modes1, modes2):
-#         super(SpectralConv2d, self).__init__()
-#         self.in_channels = in_channels
-#         self.out_channels = out_channels
-#         self.modes1 = modes1  # Number of Fourier modes to multiply, at most floor(N/2) + 1
-#         self.modes2 = modes2
-#
-#         self.scale = (1 / (in_channels * out_channels))
-#         self.weights1 = nn.Parameter(
-#             self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat))
-#         self.weights2 = nn.Parameter(
-#             self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat))
-#
-#     def compl_mul2d(self, input, weights):
-#         # (batch, in_channel, x, y), (in_channel, out_channel, x, y) -> (batch, out_channel, x, y)
-#         return torch.einsum("bixy,ioxy->boxy", input, weights)
-#
-#     def forward(self, x):
-#         batchsize = x.shape[0]
-#         # Compute Fourier coefficients up to factor of e^(- something constant)
-#         x_ft = torch.fft.rfft2(x)
-#
-#         # Multiply relevant Fourier modes
-#         out_ft = torch.zeros(batchsize, self.out_channels, x.size(-2), x.size(-1) // 2 + 1, dtype=torch.cfloat,
-#                              device=x.device)
-#         out_ft[:, :, :self.modes1, :self.modes2] = \
-#             self.compl_mul2d(x_ft[:, :, :self.modes1, :self.modes2], self.weights1)
-#         out_ft[:, :, -self.modes1:, :self.modes2] = \
-#             self.compl_mul2d(x_ft[:, :, -self.modes1:, :self.modes2], self.weights2)
-#
-#         # Return to physical space
-#         x = torch.fft.irfft2(out_ft, s=(x.size(-2), x.size(-1)))
-#         return x
+
 class SpectralConv2d(nn.Module):
-    """
-    2D 频域卷积：保留前 m1×m2 谱系数。
-    参数化为【两张实数权重表】(wr, wi)，避免复数参数与 GradScaler 冲突。
-    """
+
     def __init__(self, in_channels, out_channels, modes1, modes2):
         super().__init__()
         self.in_channels  = in_channels
@@ -51,7 +15,7 @@ class SpectralConv2d(nn.Module):
         self.modes2 = modes2
 
         scale = 1.0 / (in_channels * out_channels)
-        # 实部/虚部分别是 float 参数（非 complex）
+
         self.weight_r1 = nn.Parameter(scale * torch.randn(in_channels, out_channels, modes1, modes2))
         self.weight_i1 = nn.Parameter(scale * torch.randn(in_channels, out_channels, modes1, modes2))
         self.weight_r2 = nn.Parameter(scale * torch.randn(in_channels, out_channels, modes1, modes2))
@@ -65,7 +29,7 @@ class SpectralConv2d(nn.Module):
     def forward(self, x):
         B, C, H, W = x.shape
 
-        # 频域计算强制用 float32，避免 ComplexHalf
+
         if torch.is_autocast_enabled():
             x = x.float()
 
@@ -263,4 +227,5 @@ class FNO2d_DualTask(nn.Module):
         return n_params, n_layers
 def build_model(in_channels=3, width=64, modes1=16, modes2=16, n_layers=4):
     return FNO2d_DualTask(in_channels=in_channels, width=width,
+
                           modes1=modes1, modes2=modes2, n_layers=n_layers)
